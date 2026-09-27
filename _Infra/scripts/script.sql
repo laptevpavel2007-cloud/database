@@ -1,4 +1,4 @@
-drop table if exists packs, users, parameters, types_equipment, positions;
+drop table if exists packs, users, parameters, types_equipment, positions, pack_values;
 
 create table positions
 (
@@ -79,29 +79,22 @@ create table packs
     user_id int,           
     eq_id int,       
     meas_at timestamp,  
-    height int,             
-    temp numeric(4,1), 
-    pres int,          
-    wind_dir int,     
-    wind_speed int,         
-    drift int,     
     appr boolean    
 );
 
-insert into packs values (1,  1, 1, '2026-09-20 09:30:00', 100, 15.0, 750,  0,  0, null, false);
-insert into packs values (2,  2, 1, '2026-09-20 10:15:00', 100, 14.5, 752, 15,  4, null, false);
-insert into packs values (3,  3, 1, '2026-09-20 11:00:00', 100, 16.0, 748, 30,  6, null, true);
-insert into packs values (4,  4, 1, '2026-09-21 08:45:00', 100, 13.0, 755, 45,  3, null, false);
-insert into packs values (5,  8, 1, '2026-09-21 09:20:00', 100, 12.0, 751, 20,  5, null, false);
+insert into packs values (1,  1, 1, '2026-09-20 09:30:00', false);
+insert into packs values (2,  2, 1, '2026-09-20 10:15:00', false);
+insert into packs values (3,  3, 1, '2026-09-20 11:00:00', true);
+insert into packs values (4,  4, 1, '2026-09-21 08:45:00', false);
+insert into packs values (5,  8, 1, '2026-09-21 09:20:00', false);
+insert into packs values (6,  5, 2, '2026-09-20 09:45:00', false);
+insert into packs values (12, 6, 2, '2026-09-20 11:20:00', false);
+insert into packs values (13, 7, 2, '2026-09-20 12:00:00', true);
+insert into packs values (14, 12, 2, '2026-09-21 08:30:00', false);
+insert into packs values (15, 13, 2, '2026-09-21 10:10:00', false);
 
 
-insert into packs values (11,  5, 2, '2026-09-20 09:45:00', 100, 15.0, 750,  0, null,  0, false);
-insert into packs values (12,  6, 2, '2026-09-20 11:20:00', 100, 14.0, 752, 15, null, 45, false);
-insert into packs values (13,  7, 2, '2026-09-20 12:00:00', 100, 16.5, 748, 30, null, 60, true);
-insert into packs values (14, 12, 2, '2026-09-21 08:30:00', 100, 13.5, 755, 45, null, 75, false);
-insert into packs values (15, 13, 2, '2026-09-21 10:10:00', 100, 12.5, 751, 20, null, 90, false);
-
-
+/*
 select
     p.id as Номер_пачки,
     u.name as Сотрудник,
@@ -122,3 +115,4 @@ join positions pos on u.pos_id  = pos.id
 join types_equipment te on p.eq_id = te.id
 left join parameters par on pos.par_id = par.id
 order by p.id;
+*/
