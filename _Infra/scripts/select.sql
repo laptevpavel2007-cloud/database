@@ -4,10 +4,11 @@ left join packs p on p.user_id = u.id
 group by u.id
 
 
-select p.id, pv.value
+select p.id, pv.par_id, pv.value
 from packs p
-left join pack_values pv on p.id = pv.pack_id
-where pv.value = null;
+join pack_values pv on p.id = pv.pack_id
+where pv.value is null
+order by p.id, pv.par_id;
 
 select p.id, count(pv.value) as cnt
 from packs p
