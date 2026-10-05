@@ -1,13 +1,14 @@
-select u.id, count(p.id) as cnt
+select u.id, u.name, count(pv.par_id) as cnt
 from users u
 left join packs p on p.user_id = u.id
-group by u.id
-
+left join pack_values pv on pv.pack_id = p.id
+group by u.id, u.name
 
 select p.id, pv.par_id, pv.value
 from packs p
 join pack_values pv on p.id = pv.pack_id
 where pv.value is null
+group by p.id
 order by p.id, pv.par_id;
 
 select p.id, count(pv.value) as cnt

@@ -1,3 +1,19 @@
+create table type_parametrs (
+    id int,
+    name text
+);
+
+insert into type_parametrs (id, name) values (1, 'Наземный параметр');
+insert into type_parametrs (id, name) values (2, 'Параметр стандартной высоты');
+
+update parameters set column_id = 1, meas_id = 5, type_id = 1 where id = 1;
+update parameters set column_id = 2, meas_id = 1, type_id = 1 where id = 2;
+update parameters set column_id = 3, meas_id = 6, type_id = 1 where id = 3;
+update parameters set column_id = 4, meas_id = 4, type_id = 1 where id = 4;
+update parameters set column_id = 5, meas_id = 3, type_id = 1 where id = 5;
+update parameters set column_id = 6, meas_id = 5, type_id = 1 where id = 6;
+
+
 -- ------------------------------------------------------------
 -- Новые пачки
 -- ------------------------------------------------------------
