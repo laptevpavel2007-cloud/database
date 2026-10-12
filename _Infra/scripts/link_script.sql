@@ -1,12 +1,26 @@
+
+begin;
+
+do $$
+begin
+
+begin
+
 drop table if exists packs, users, parameters, types_equipment, positions, pack_values, base_measurement, measurement, type_parametrs, list_measurement,
 temp_cor cascade;
 
 drop sequence if exists positions_id_seq, types_equipment_id_seq, users_id_seq, parameters_id_seq, packs_id_seq, pack_values_id_seq, base_measurement_id_seq,
 measurement_id_seq, type_parametrs_id_seq, list_measurement_id_seq, temp_correction_id_seq cascade;
 
-begin;
-do $$
+raise notice 'очистка';
+exception when others then raise notice 'ошибка очистки %', sqlerrm;
+
+end;
+
+
+
 begin
+
 	create table positions
 	(
 	    id int primary key, 
@@ -15,7 +29,9 @@ begin
 	);
 	create sequence if not exists positions_id_seq start 1;
 	alter table positions alter column id set default nextval('positions_id_seq');
-	
+	comment on table positions is 'должности расчёта метеобюллетеня';
+
+
 	create table types_equipment
 	(
 	    id int primary key,
@@ -23,6 +39,7 @@ begin
 	);
 	create sequence if not exists types_equipment_id_seq start 1;
 	alter table types_equipment alter column id set default nextval('types_equipment_id_seq');
+	comment on table types_equipment is 'типы оборудования (ДМК / ВР)';
 	
 	create table users
 	(
@@ -33,6 +50,7 @@ begin
 	);
 	create sequence if not exists users_id_seq start 1;
 	alter table users alter column id set default nextval('users_id_seq');
+	comment on table users is 'пользователи';
 	
 	create table parameters
 	(
@@ -41,6 +59,7 @@ begin
 	);
 	create sequence if not exists parameters_id_seq start 1;
 	alter table parameters alter column id set default nextval('parameters_id_seq');
+	comment on table parameters is 'параметры метеоизмерений';
 	
 	create table packs
 	(
@@ -52,7 +71,8 @@ begin
 	);
 	create sequence if not exists packs_id_seq start 1;
 	alter table packs alter column id set default nextval('packs_id_seq');
-	
+	comment on table packs is 'пачки измерений';
+
 	create table pack_values
 	(
 		id int primary key,
@@ -62,6 +82,7 @@ begin
 	);
 	create sequence if not exists pack_values_id_seq start 1;
 	alter table pack_values alter column id set default nextval('pack_values_id_seq');
+	comment on table pack_values is 'значения параметров в пачке';
 	
 	create table base_measurement (
 	    id int primary key,
@@ -69,7 +90,8 @@ begin
 	);
 	create sequence if not exists base_measurement_id_seq start 1;
 	alter table base_measurement alter column id set default nextval('base_measurement_id_seq');
-	
+	comment on table base_measurement is 'базовые физические величины';
+
 	create table measurement (
 	    id int primary key,
 	    name text,
@@ -78,20 +100,23 @@ begin
 	);
 	create sequence if not exists measurement_id_seq start 1;
 	alter table measurement alter column id set default nextval('measurement_id_seq');
-	
+	comment on table measurement is 'единицы измерения и коэффициенты пересчёта';
+
 	create table type_parametrs (
 	    id int primary key,
 	    name text
 	);
 	create sequence if not exists type_parametrs_id_seq start 1;
 	alter table type_parametrs alter column id set default nextval('type_parametrs_id_seq');
-	
+	comment on table type_parametrs is 'типы параметров';
+
 	create table list_measurement (
 	    id int primary key,
 	    name text
 	);
 	create sequence if not exists list_measurement_id_seq start 1;
 	alter table list_measurement alter column id set default nextval('list_measurement_id_seq');
+	comment on table list_measurement is 'справочник кодовых имён параметров';
 
 	create table temp_cor (
         id          int primary key,
@@ -102,12 +127,17 @@ begin
     );
     create sequence if not exists temp_correction_id_seq start 1;
     alter table temp_cor alter column id set default nextval('temp_correction_id_seq');
+	comment on table temp_cor is 'справочник температур';
+	
+	raise notice 'структура создана';
+    exception when others then
+    raise notice 'ошибка создания структуры %', sqlerrm;
+	
+end;
  
-end $$;
-commit;
 
-begin;
-do $$
+
+ 
 begin
 	
 	-- ------------------------------------------------------------
@@ -331,11 +361,12 @@ begin
 	        (6, 30,   30,  3.5,  '30'),
 	        (7, 40,   40,  4.5,  '40');
 
-end $$;
-commit;
+	raise notice 'данные добавлены';
+    exception when others then
+    raise notice 'ошибка добавения данных %', sqlerrm;
 
-begin;
-do $$
+end;
+
 begin
 	
 	alter table measurement add constraint fk_measurement_base
@@ -399,18 +430,34 @@ begin
 	alter table temp_cor alter column temp_from drop not null;
 	alter table temp_cor alter column description set not null;
 	
-	
+
 	alter table pack_values add constraint chk_height check (par_id <> 1 or value is null or (value > 0 and value <= 5000)) not valid;
+	comment on constraint chk_height on pack_values is 'высота: > 0 и <= 5000';
 	
+
 	alter table pack_values add constraint chk_temp check (par_id <> 2 or value is null or (value >= -60 and value <= 60)) not valid;
+	comment on constraint chk_temp on pack_values is 'температура: -60 - 60';
 	
+
 	alter table pack_values add constraint chk_pres check (par_id <> 3 or value is null or (value >= 600 and value <= 800)) not valid;
+	comment on constraint chk_pres on pack_values is 'давление: 600 - 800';
 	
+
 	alter table pack_values add constraint chk_wind_dir check (par_id <> 4 or value is null or (value >= 0 and value <= 360)) not valid;
+	comment on constraint chk_wind_dir on pack_values is 'направление ветра: 0 - 360';
 	
+
 	alter table pack_values add constraint chk_wind_speed check (par_id <> 5 or value is null or (value >= 0 and value <= 60)) not valid;
-	
+	comment on constraint chk_wind_speed on pack_values is 'скорость ветра: 0 - 60';
+
 	alter table pack_values add constraint chk_drift check (par_id <> 6 or value is null or (value >= 0 and value <= 1000)) not valid;
+	comment on constraint chk_drift on pack_values is 'дальность сноса: 0 - 1000';
+	
+	raise notice 'условия добавлены';
+    exception when others then
+   	raise notice 'ошибка добавения условий %', sqlerrm;
+
+end;
 
 end $$;
 commit;
