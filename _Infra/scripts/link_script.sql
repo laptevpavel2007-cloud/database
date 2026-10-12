@@ -1,25 +1,24 @@
-
-begin;
-
 do $$
 begin
 
-begin
+	begin
 
-drop table if exists packs, users, parameters, types_equipment, positions, pack_values, base_measurement, measurement, type_parametrs, list_measurement,
-temp_cor cascade;
+	drop table if exists packs, users, parameters, types_equipment, positions, pack_values, base_measurement, measurement, type_parametrs, list_measurement,
+	temp_cor cascade;
+	
+	drop sequence if exists positions_id_seq, types_equipment_id_seq, users_id_seq, parameters_id_seq, packs_id_seq, pack_values_id_seq, base_measurement_id_seq,
+	measurement_id_seq, type_parametrs_id_seq, list_measurement_id_seq, temp_correction_id_seq cascade;
+	
+	raise notice 'очистка';
+	exception when others then raise notice 'ошибка очистки %', sqlerrm;
 
-drop sequence if exists positions_id_seq, types_equipment_id_seq, users_id_seq, parameters_id_seq, packs_id_seq, pack_values_id_seq, base_measurement_id_seq,
-measurement_id_seq, type_parametrs_id_seq, list_measurement_id_seq, temp_correction_id_seq cascade;
-
-raise notice 'очистка';
-exception when others then raise notice 'ошибка очистки %', sqlerrm;
-
-end;
+	end;
+	commit;
 
 
 
-begin
+
+	begin
 
 	create table positions
 	(
@@ -133,13 +132,13 @@ begin
     exception when others then
     raise notice 'ошибка создания структуры %', sqlerrm;
 	
-end;
- 
+	end;
+	commit;
 
 
+
  
-begin
-	
+	begin
 	-- ------------------------------------------------------------
 	-- base_measurement
 	-- ------------------------------------------------------------
@@ -365,9 +364,13 @@ begin
     exception when others then
     raise notice 'ошибка добавения данных %', sqlerrm;
 
-end;
+	end;
+	commit;
 
-begin
+
+
+
+	begin
 	
 	alter table measurement add constraint fk_measurement_base
 	foreign key (base_meas_id) references base_measurement (id);
@@ -457,7 +460,7 @@ begin
     exception when others then
    	raise notice 'ошибка добавения условий %', sqlerrm;
 
-end;
+	end;
+	commit;
 
 end $$;
-commit;
