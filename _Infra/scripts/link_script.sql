@@ -116,13 +116,12 @@ begin
 		alter table list_measurement alter column id set default nextval('list_measurement_id_seq');
 		comment on table list_measurement is 'справочник кодовых имён параметров';
 	
-		create table temp_cor (
-	        id          int primary key,
-	        temp_from   numeric(5,1),       
-	        temp_to     numeric(5,1),       
-	        delta_tv    numeric(4,1) not null,
-	        description text
-	    );
+
+		create table temp_cor (	
+			id int,
+		  	temperature numeric(8,2),
+		  	correction numeric(8,2)
+		);
 	    create sequence if not exists temp_correction_id_seq start 1;
 	    alter table temp_cor alter column id set default nextval('temp_correction_id_seq');
 		comment on table temp_cor is 'справочник температур';
@@ -350,15 +349,9 @@ begin
 		update parameters set meas_id = 3, type_id = 1, column_id = 5 where id = 5;
 		update parameters set meas_id = 5, type_id = 2, column_id = 6 where id = 6;
 		
-		insert into temp_cor (id, temp_from, temp_to, delta_tv, description) values
-		        (1, null,  0,  0,    'ниже 0'),
-		        (2, 0,     5,  0.5,  '0 - 5'),
-		        (3, 10,   15,  1,    '10 - 15'),
-		        (4, 20,   20,  1.5,  '20'),
-		        (5, 25,   25,  2,    '25'),
-		        (6, 30,   30,  3.5,  '30'),
-		        (7, 40,   40,  4.5,  '40');
-	
+		insert into temp_cor(id, temperature, correction)
+				values (1, 0, 0.5),(2, 5, 0.5),(3, 10, 1), (4, 20,1), (5, 25, 2), (6, 30, 3.5), (7, 40, 4.5);
+			
 		raise notice 'данные добавлены';
 	    exception when others then
 	    raise notice 'ошибка добавения данных %', sqlerrm;
@@ -428,10 +421,9 @@ begin
 		alter table pack_values alter column pack_id set not null;
 		alter table pack_values alter column par_id set not null;
 		
-		alter table temp_cor alter column temp_from drop not null;
-		alter table temp_cor alter column description set not null;
-		
-	
+		alter table temp_cor alter column temperature set not null;
+		alter table temp_cor alter column correction set not null;
+
 		alter table pack_values add constraint chk_height check (par_id <> 1 or value is null or (value > 0 and value <= 5000)) not valid;
 		comment on constraint chk_height on pack_values is 'высота: > 0 и <= 5000';
 		
