@@ -8,5 +8,6 @@ begin
 
 	v_ip := row(25, 2, 30, 3.5)::interp_params;
 	raise notice 'calculation_temp(25) = % (ожидалось 2.00)', calculation_temp(25, v_ip);
+	
 end $$;
 commit;
