@@ -7,23 +7,26 @@ begin
     end;
 
     begin
-        create table errors (
-            id         int,
-            par_id     int,
-            error_name text,
-            error_desc text
-        );
+		create table errors (
+		    id         int,
+		    par_id     int,
+		    error_name text, 
+		    error_desc text,
+		    min_val    numeric(12,2),
+		    max_val    numeric(12,2),
+		    strict_min boolean default false
+		);
         create sequence if not exists errors_id_seq start 1;
         alter table errors alter column id set default nextval('errors_id_seq');
         comment on table errors is 'Возможные ошибки в данных';
 
-        insert into errors (par_id, error_name, error_desc) values
-            (1, 'Вне диапазона', 'height: > 0 и <= 5000'),
-            (2, 'Вне диапазона', 'temperature: от -60 до 60'),
-            (3, 'Вне диапазона', 'pres: от 600 до 800'),
-            (4, 'Вне диапазона', 'wind_dir: от 0 до 360'),
-            (5, 'Вне диапазона', 'wind_speed: от 0 до 60'),
-            (6, 'Вне диапазона', 'drift: от 0 до 1000');
+		insert into errors (par_id, error_name, error_desc, min_val, max_val, strict_min) values
+		    (1, 'Вне диапазона', 'height',      0,    5000, true),
+		    (2, 'Вне диапазона', 'temperature', -60,  60,   false),
+		    (3, 'Вне диапазона', 'pres',        600,  800,  false),
+		    (4, 'Вне диапазона', 'wind_dir',    0,    360,  false),
+		    (5, 'Вне диапазона', 'wind_speed',  0,    60,   false),
+		    (6, 'Вне диапазона', 'drift',       0,    1000, false);
     end;
 
     begin
@@ -45,47 +48,41 @@ begin
             declare
                 res text := '';
                 e   text := 'Нет';
+                rec record;
+                v_val numeric;
             begin
-                if (p.height is null) then
-                    e := 'Есть'; res := res || 'height: NULL; ';
-                elsif (p.height <= 0 or p.height > 5000) then
-                    e := 'Есть'; res := res || 'height: Вне диапазона (' || p.height || '); ';
-                end if;
 
-                if (p.temperature is null) then
-                    e := 'Есть'; res := res || 'temperature: NULL; ';
-                elsif (p.temperature < -60 or p.temperature > 60) then
-                    e := 'Есть'; res := res || 'temperature: Вне диапазона (' || p.temperature || '); ';
-                end if;
+                for rec in select * from errors order by par_id loop
+        
+                    v_val := case rec.par_id
+                        when 1 then p.height
+                        when 2 then p.temperature
+                        when 3 then p.pres
+                        when 4 then p.wind_dir
+                        when 5 then p.wind_speed
+                        when 6 then p.drift
+                    end;
 
-                if (p.pres is null) then
-                    e := 'Есть'; res := res || 'pres: NULL; ';
-                elsif (p.pres < 600 or p.pres > 800) then
-                    e := 'Есть'; res := res || 'pres: Вне диапазона (' || p.pres || '); ';
-                end if;
+                    if (v_val is null) then
+                        e := 'Есть';
+                        res := res || rec.error_desc || ': NULL; ';
 
-                if (p.wind_dir is null) then
-                    e := 'Есть'; res := res || 'wind_dir: NULL; ';
-                elsif (p.wind_dir < 0 or p.wind_dir > 360) then
-                    e := 'Есть'; res := res || 'wind_dir: Вне диапазона (' || p.wind_dir || '); ';
-                end if;
-
-                if (p.wind_speed is null) then
-                    e := 'Есть'; res := res || 'wind_speed: NULL; ';
-                elsif (p.wind_speed < 0 or p.wind_speed > 60) then
-                    e := 'Есть'; res := res || 'wind_speed: Вне диапазона (' || p.wind_speed || '); ';
-                end if;
-
-                if (p.drift is null) then
-                    e := 'Есть'; res := res || 'drift: NULL; ';
-                elsif (p.drift < 0 or p.drift > 1000) then
-                    e := 'Есть'; res := res || 'drift: Вне диапазона (' || p.drift || '); ';
-                end if;
+                    elsif (rec.strict_min and v_val <= rec.min_val) 
+                       or (not rec.strict_min and v_val < rec.min_val) 
+                       or v_val > rec.max_val then
+                       
+                        e := 'Есть';
+                        res := res || rec.error_desc || ': Вне диапазона (' || v_val || '); ';
+                    end if;
+                    
+                end loop;
 
                 return query select e, res;
+                
             end;
         $fn$ language plpgsql;
-		comment on function check_errors(list_par) is 'Функция нахождения ошибок';
-		
+        
+        comment on function check_errors(list_par) is 'Функция нахождения ошибок';
     end;
+
 end $$;
