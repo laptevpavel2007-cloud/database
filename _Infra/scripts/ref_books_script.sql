@@ -17,7 +17,7 @@ begin
 	
         create table stand_height (
             id int,
-            meas int not null,
+            meas int not null unique,
             code text not null
         );
 		
