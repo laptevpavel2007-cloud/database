@@ -175,8 +175,10 @@ begin
 		create or replace function interpolate_array(p_h int[], p_r int[], p_t numeric) returns int
 		as $fn$
 		declare
-		    x0 int; y0 int;
-		    x1 int; y1 int;
+		    x0 int;
+            y0 int;
+		    x1 int;
+            y1 int;
 		    val numeric;
 		begin
 		
