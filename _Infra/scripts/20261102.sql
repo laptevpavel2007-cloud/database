@@ -5,7 +5,7 @@ begin
 		drop table if exists calc_correction_heights, calc_correction_headers, calc_correction_types, calc_correction cascade;
 		drop procedure if exists calculations (p_eq_type text) cascade;
 		drop sequence if exists calc_correction_height_seq, calc_correction_headers_id_seq, calc_correction_types_seq, calc_correction_seq cascade;
-		drop function if exists interpolate_array(p_h int[], p_r int[], p_t numeric) cascade;
+		drop function if exists interpolate_array(p_h int[], p_r int[], p_t numeric), format_val(p_val int), format_height(p_height int) cascade;
 		
 	end;
 
@@ -216,9 +216,33 @@ begin
 		$fn$ language plpgsql;
 		
 	end;
-	
 
 	begin
+
+		create function format_val(p_val int) returns text
+		as $fn$
+		begin
+		    return lpad(coalesce(p_val, 0)::text, 2, '0');
+		end;
+		$fn$ language plpgsql;
+
+		
+		create function format_height(p_height int) returns text
+		as $fn$
+		begin
+		    return lpad((p_height / 100)::text, 2, '0');
+		end;
+		$fn$ language plpgsql;
+	
+	end;
+
+	begin
+
+		insert into const(code_const, name, mean) values
+		    ('cc_dmk', 'ID таблицы скорости ДМК', 6),
+		    ('hh_dmk', 'ID таблицы направления ДМК', 7),
+		    ('cc_vr',  'ID таблицы скорости ВР',  4),
+		    ('hh_vr',  'ID таблицы направления ВР', 5);
 	
 		update temp_cor set correction = 1.5 where temperature = 20; -- Заметил что я прошлом скрипте сделал опечатку в данных
 
@@ -279,8 +303,8 @@ begin
 			join calc_correction_headers ch on ct.header_id = ch.id where ct.id = 1;
 
 			if v_eq_id = 1 then
-				v_cc := 6;
-				v_hh := 7;
+				v_cc := const_value('cc_dmk')::int;
+				v_hh := const_value('hh_dmk')::int;
 				if v_wind_val < 3 then
 					v_zero := true;
 				else
@@ -334,11 +358,11 @@ begin
 			       end if;
 
 			
-			       raise notice 'Высота: %, TT: %, HH: %, CC: %',
-			           lpad((rec.height / 100)::text, 2, '0'),
-			           lpad(v_tt_val::text, 2, '0'),
-			           lpad(v_hh_val::text, 2, '0'),
-			           lpad(v_cc_val::text, 2, '0');
+					raise notice 'Высота: %, TT: %, HH: %, CC: %',
+					    format_height(rec.height),
+					    format_val(v_tt_val),
+					    format_val(v_hh_val),
+					    format_val(v_cc_val);
 			   end loop;
 
 		end;
