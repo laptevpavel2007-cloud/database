@@ -3,8 +3,9 @@ begin
 	begin
 
 		drop table if exists calc_correction_heights, calc_correction_headers, calc_correction_types, calc_correction cascade;
-		drop procedure if exists calculations (p_pack_id int, p_eq_type text, inout p_result refcursor) cascade;
+		drop procedure if exists calculations (p_eq_type text) cascade;
 		drop sequence if exists calc_correction_height_seq, calc_correction_headers_id_seq, calc_correction_types_seq, calc_correction_seq cascade;
+		drop function if exists interpolate_array(p_h int[], p_r int[], p_t numeric) cascade;
 		
 	end;
 
@@ -170,25 +171,75 @@ begin
 	end;
 
 	begin
-		update temp_cor set correction = 1.5 where temperature = 20; -- Заметил что я прошлом скрипте сделал опечатку в данных
-
-		create procedure calculations (p_pack_id int, p_eq_type text, inout p_result refcursor)
+	
+		create or replace function interpolate_array(p_h int[], p_r int[], p_t numeric) returns int
 		as $fn$
 		declare
-			v_temp numeric;
-			v_wind_dir numeric;
-			v_wind_val numeric;
-			v_eq_id int;
-			v_t0 numeric;
-			v_dt int;
-			v_tt int;
-			v_idx_tens int;
-			v_idx_units int;
-			v_cc int;
-			v_hh int;
-			v_idx_wind int;
-			v_zero boolean;
-			v_header_tt int[];
+		    x0 int; y0 int;
+		    x1 int; y1 int;
+		    val numeric;
+		begin
+		
+		    if p_r is null or array_length(p_r, 1) = 0 then
+		        return 0;
+		    end if;
+
+		    if array_length(p_r, 1) = 1 then
+		        return p_r[1];
+		    end if;
+		
+		    if p_t <= p_h[1] then
+		        return p_r[1];
+		    end if;
+		
+		    if p_t >= p_h[array_length(p_h, 1)] then
+		        return p_r[array_length(p_r, 1)];
+		    end if;
+		
+		    for i in 1 .. array_length(p_h, 1) - 1 loop
+		        if p_h[i] <= p_t and p_h[i+1] >= p_t then
+		            x0 := p_h[i];   y0 := p_r[i];
+		            x1 := p_h[i+1]; y1 := p_r[i+1];
+		            exit;
+		        end if;
+		    end loop;
+		
+		    if x1 = x0 then
+		        return y0;
+		    end if;
+		
+		    val := y0 + (y1 - y0) * (p_t - x0) / (x1 - x0);
+		    return round(val)::int;
+		end;
+		$fn$ language plpgsql;
+		
+	end;
+	
+
+	begin
+	
+		update temp_cor set correction = 1.5 where temperature = 20; -- Заметил что я прошлом скрипте сделал опечатку в данных
+
+		create procedure calculations (p_eq_type text)
+		as $fn$
+		declare
+		    v_temp numeric;
+		    v_wind_dir numeric;
+		    v_wind_val numeric;
+		    v_eq_id int;
+		    v_pack_id int;
+		    v_t0 numeric;
+		    v_dt int;
+		    v_tt int;
+		    v_cc int;
+		    v_hh int;
+		    v_zero boolean;
+		    v_header_tt int[];
+		    v_header_wind int[];
+		    v_tt_val int;
+		    v_cc_val int;
+		    v_hh_val int;
+		    rec record;   
 		begin
 		
 			select id into v_eq_id from types_equipment where name = p_eq_type;
@@ -197,16 +248,17 @@ begin
 			end if;
 
 
-			select max(value) filter (where par_id = 2) into v_temp from pack_values where pack_id = p_pack_id;
+			select id into v_pack_id from packs where eq_id = v_eq_id order by id desc limit 1;
+
+			select max(value) filter (where par_id = 2) into v_temp from pack_values where pack_id = v_pack_id;
 			
-			select max(value) filter (where par_id = 4) into v_wind_dir from pack_values where pack_id = p_pack_id;
+			select max(value) filter (where par_id = 4) into v_wind_dir from pack_values where pack_id = v_pack_id;
 			
 			if v_eq_id = 1 then
-				select max(value) filter (where par_id = 5) into v_wind_val from pack_values where pack_id = p_pack_id;
+				select max(value) filter (where par_id = 5) into v_wind_val from pack_values where pack_id = v_pack_id;
 			else
-				select max(value) filter (where par_id = 6) into v_wind_val from pack_values where pack_id = p_pack_id;
+				select max(value) filter (where par_id = 6) into v_wind_val from pack_values where pack_id = v_pack_id;
 			end if;
-
 
 			if v_temp >= 0 then
                 v_t0 := v_temp + calculation_temp(v_temp, definition_temp_inter(v_temp));
@@ -221,13 +273,8 @@ begin
 					end;
 			
 
-			select ch.header_values into v_header_tt
-			from calc_correction_types ct
-			join calc_correction_headers ch on ct.header_id = ch.id
-			where ct.id = 1;
-
-			v_idx_tens := array_position(v_header_tt, (abs(v_dt)/10)*10);
-			v_idx_units := array_position(v_header_tt, abs(v_dt)%10);
+			select ch.header_values into v_header_tt from calc_correction_types ct
+			join calc_correction_headers ch on ct.header_id = ch.id where ct.id = 1;
 
 			if v_eq_id = 1 then
 				v_cc := 6;
@@ -237,7 +284,7 @@ begin
 				else
 					v_zero := false;
 				end if;
-				v_idx_wind := array_position((select header_values from calc_correction_headers where id = 3), least(round(v_wind_val)::int, 15));
+				select ch.header_values into v_header_wind from calc_correction_headers ch where ch.id = 3;
 			else
 				v_cc := 4;
 				v_hh := 5;
@@ -246,34 +293,51 @@ begin
 				else
 					v_zero := false;
 				end if;
-				v_idx_wind := array_position((select header_values from calc_correction_headers where id = 2), least((round(v_wind_val/10.0) * 10)::int, 150));
+				select ch.header_values into v_header_wind from calc_correction_headers ch where ch.id = 2;
 			end if;
-		
-			open p_result for
-			select 
-				lpad((h.height / 100)::text, 2, '0') as h_code,
-				lpad((case 
-						when (coalesce(tt.row_values[v_idx_tens], 0) + coalesce(tt.row_values[v_idx_units], 0)) < 0 
-							 then abs(coalesce(tt.row_values[v_idx_tens], 0) + coalesce(tt.row_values[v_idx_units], 0)) + const_value('encoding_negative_temperature_values')::int
-						else coalesce(tt.row_values[v_idx_tens], 0) + coalesce(tt.row_values[v_idx_units], 0)
-					end)::text, 
-				2, '0') as tt,
-				
-				case 
-					when v_zero then '00'
-					else lpad(((v_wind_dir::int + coalesce(hh.row_values[v_idx_wind], hh.row_values[1], 0) + 60) % 60)::text, 2, '0')
-				end as hh,
+					
+			for rec in select h.height, tt.row_values as tt_row, cc.row_values as cc_row, hh.row_values as hh_row
+			       from calc_correction_heights h
+			       left join calc_correction tt on tt.height_id = h.id and tt.type_id = v_tt
+			       left join calc_correction cc on cc.height_id = h.id and cc.type_id = v_cc
+			       left join calc_correction hh on hh.height_id = h.id and hh.type_id = v_hh
+			       order by h.height
+			   loop
+			     
+			       v_tt_val := interpolate_array(v_header_tt, rec.tt_row, abs(v_dt));
+			       if v_tt_val is null then v_tt_val := 0; end if;
+			       if v_tt_val < 0 then
+			           v_tt_val := abs(v_tt_val) + const_value('encoding_negative_temperature_values')::int;
+			       end if;
+			
 
-				case 
-					when v_zero then '00'
-					else lpad(coalesce(cc.row_values[v_idx_wind], 0)::text, 2, '0')
-				end as cc
-				
-			from calc_correction_heights h
-			left join calc_correction tt on tt.height_id = h.id and tt.type_id = v_tt
-			left join calc_correction cc on cc.height_id = h.id and cc.type_id = v_cc
-			left join calc_correction hh on hh.height_id = h.id and hh.type_id = v_hh
-			order by h.height;
+			       if v_zero = true then
+			           v_cc_val := 0;
+			           v_hh_val := 0;
+			       else
+			           v_cc_val := interpolate_array(v_header_wind, rec.cc_row, 
+			                                         case 
+													 	when v_eq_id = 1 then v_wind_val 
+			                                            when v_eq_id = 2 then round(v_wind_val / 10.0) * 10
+													 end);
+			           v_hh_val := interpolate_array(v_header_wind, rec.hh_row, 
+			                                         case
+													 	when v_eq_id = 1 then v_wind_val 
+			                                            when v_eq_id = 2 then round(v_wind_val / 10.0) * 10
+													 end);
+			           if v_hh_val is null then 
+					   		v_hh_val := 0;
+					   end if;
+			           v_hh_val := (v_wind_dir::int + v_hh_val + 60) % 60;
+			       end if;
+
+			
+			       raise notice 'Высота: %, TT: %, HH: %, CC: %',
+			           lpad((rec.height / 100)::text, 2, '0'),
+			           lpad(v_tt_val::text, 2, '0'),
+			           lpad(v_hh_val::text, 2, '0'),
+			           lpad(v_cc_val::text, 2, '0');
+			   end loop;
 
 		end;
 		$fn$ language plpgsql;
